@@ -100,6 +100,14 @@ const NostrIntegration: React.FC = () => {
       setError("Failed to send to Nostr user");
     }
   };
+  const copyPubkeyToClipboard = () => {
+    if (pubkey) {
+      navigator.clipboard.writeText(pubkey);
+      alert("Public key copied to clipboard!");
+    } else {
+      alert("No public key available to copy");
+    }
+  };
 
   return (
     <div className="bg-gray-700 p-4 rounded-lg">
@@ -116,8 +124,8 @@ const NostrIntegration: React.FC = () => {
       )}
 
       <div className="mb-6">
-        <p className="text-gray-300 mb-2">
-          Your Nostr Public Key:{" "}
+        <p className="text-gray-300 mb-2" onClick={copyPubkeyToClipboard}>
+          Your Nostr Public Key (click to copy):
           <span className="font-mono">{formatPubkey(pubkey)}</span>
         </p>
 

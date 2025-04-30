@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { Track } from "../types/wavlake";
+import ZapButton from "./ZapButton";
 
 interface MusicPlayerProps {
   currentTrack: Track;
@@ -106,11 +107,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
       {/* Album artwork */}
       <div className="relative w-64 h-64 mb-4">
         <Image
-          src={
-            currentTrack.albumArtUrl ||
-            currentTrack.artistArtUrl ||
-            "/placeholder-album.png"
-          }
+          src={currentTrack.albumArtUrl || "/placeholder-album.jpg"}
           alt={`${currentTrack.title} artwork`}
           fill
           sizes="(max-width: 768px) 100vw, 256px"
@@ -122,7 +119,15 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
 
       {/* Track info */}
       <div className="w-full text-center mb-4">
-        <h2 className="text-xl font-bold truncate">{currentTrack.title}</h2>
+        <div className="flex items-center justify-center">
+          <h2 className="text-xl font-bold truncate mr-2">
+            {currentTrack.title}
+          </h2>
+          <ZapButton
+            trackId={currentTrack.id}
+            trackTitle={currentTrack.title}
+          />
+        </div>
         <p className="text-gray-400 truncate">{currentTrack.artist}</p>
         <p className="text-gray-500 text-sm truncate">
           {currentTrack.albumTitle}
@@ -164,6 +169,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           <button
             onClick={onPrevious}
             className="text-white p-2 rounded-full focus:outline-none hover:bg-gray-800"
+            aria-label="Previous track"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -184,6 +190,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           <button
             onClick={isPlaying ? onPause : onPlay}
             className="bg-blue-600 text-white p-3 rounded-full focus:outline-none hover:bg-blue-700"
+            aria-label={isPlaying ? "Pause" : "Play"}
           >
             {isPlaying ? (
               <svg
@@ -227,6 +234,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           <button
             onClick={onNext}
             className="text-white p-2 rounded-full focus:outline-none hover:bg-gray-800"
+            aria-label="Next track"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

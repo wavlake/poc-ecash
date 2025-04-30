@@ -5,6 +5,8 @@ import { usePlayer } from "../hooks/usePlayer";
 import MusicPlayer from "../components/MusicPlayer";
 import TrackList from "../components/TrackList";
 import SearchBar from "../components/SearchBar";
+import Link from "next/link";
+import { useWallet } from "../contexts/WalletContext";
 
 export default function Home() {
   const {
@@ -20,7 +22,10 @@ export default function Home() {
     searchTracks,
   } = usePlayer();
 
+  const { balance } = useWallet();
+
   const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
+  const [showWalletBanner, setShowWalletBanner] = useState(true);
 
   // Update current track index when tracks or currentTrack change
   useEffect(() => {
@@ -42,6 +47,29 @@ export default function Home() {
         <h1 className="text-3xl font-bold mb-8 text-center">
           Wavlake Music Player
         </h1>
+
+        {showWalletBanner && balance === 0 && (
+          <div className="bg-blue-900 text-white p-4 rounded-lg mb-8 flex justify-between items-center">
+            <div>
+              <h3 className="font-bold">💰 Your wallet is empty!</h3>
+              <p>Add some Cashu tokens to zap your favorite tracks</p>
+            </div>
+            <div className="flex space-x-3">
+              <Link
+                href="/wallet?tab=receive"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              >
+                Fund Wallet
+              </Link>
+              <button
+                onClick={() => setShowWalletBanner(false)}
+                className="bg-transparent hover:bg-blue-800 text-white px-2 py-1 rounded-lg"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Left sidebar for music player */}
@@ -83,7 +111,12 @@ export default function Home() {
       </main>
 
       <footer className="py-6 text-center text-gray-400">
-        <p>Powered by Next.js and Wavlake API</p>
+        <p>
+          Powered by Next.js, Wavlake API, and{" "}
+          <Link href="/wallet" className="text-blue-400 hover:underline">
+            Cashu Wallet (NIP-60)
+          </Link>
+        </p>
       </footer>
     </div>
   );

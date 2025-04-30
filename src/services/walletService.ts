@@ -260,10 +260,172 @@ class WalletService {
   }
 
   async zapTrack(trackId: string, amount: number): Promise<string> {
-    // This function will be used to zap a track with cashu tokens
-    // For now, just create a simple token with a memo
-    const memo = `Zap for track ${trackId}`;
-    return this.sendToken(amount, memo);
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+
+    if (amount <= 0) {
+      throw new Error("Amount must be greater than zero");
+    }
+
+    const balance = await this.getBalance();
+    if (balance < amount) {
+      throw new Error("Insufficient balance");
+    }
+
+    try {
+      // Step 1: Get the LNURL data from the track's payRequest endpoint
+      const lnurlEndpoint = `https://wavlake.com/api/lnurl/track/${trackId}`;
+
+      const lnurlResponse = await fetch(lnurlEndpoint);
+      if (!lnurlResponse.ok) {
+        throw new Error(
+          `Failed to fetch LNURL data: ${lnurlResponse.statusText}`
+        );
+      }
+
+      const payRequestData = await lnurlResponse.json();
+
+      // Validate the response has required fields according to LUD-06
+      if (
+        payRequestData.tag !== "payRequest" ||
+        !payRequestData.callback ||
+        !payRequestData.metadata
+      ) {
+        throw new Error("Invalid LNURL payRequest response");
+      }
+
+      // Ensure the amount is within the allowed limits
+      const minSendable = payRequestData.minSendable || 1000; // Default to 1 sat (1000 msats)
+      const maxSendable = payRequestData.maxSendable || 100000000000; // Default to 1000 sats
+
+      // Convert amount from sats to msats for LNURL
+      const amountMsats = amount * 1000;
+
+      if (amountMsats < minSendable) {
+        throw new Error(
+          `Amount too small. Minimum is ${minSendable / 1000} sats`
+        );
+      }
+
+      if (amountMsats > maxSendable) {
+        throw new Error(
+          `Amount too large. Maximum is ${maxSendable / 1000} sats`
+        );
+      }
+
+      // Step 2: Get the lightning invoice by calling the callback URL
+      const separator = payRequestData.callback.includes("?") ? "&" : "?";
+      const callbackUrl = `${payRequestData.callback}${separator}amount=${amountMsats}`;
+
+      const invoiceResponse = await fetch(callbackUrl);
+      if (!invoiceResponse.ok) {
+        throw new Error(`Failed to get invoice: ${invoiceResponse.statusText}`);
+      }
+
+      const invoiceData = await invoiceResponse.json();
+
+      if (!invoiceData.pr) {
+        throw new Error("No invoice received from the server");
+      }
+
+      // Verify metadata hash against invoice description_hash if needed
+      // (This would require a lightning invoice decoder, which is out of scope for this implementation)
+
+      const bolt11Invoice = invoiceData.pr;
+
+      // Step 3: Use the mint to pay the invoice via NUT-05 melt process
+      // Get the first mint
+      const mintUrl = this.wallets.keys().next().value;
+      if (!mintUrl) {
+        throw new Error("No mints available");
+      }
+
+      const wallet = this.wallets.get(mintUrl);
+      if (!wallet) {
+        throw new Error("Wallet not available");
+      }
+
+      // Step 3a: Request a melt quote from the mint
+      const meltQuoteUrl = `${mintUrl}/v1/melt/quote/bolt11`;
+      const quoteResponse = await fetch(meltQuoteUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          request: bolt11Invoice,
+          unit: "sat",
+        }),
+      });
+
+      if (!quoteResponse.ok) {
+        throw new Error(
+          `Failed to get melt quote: ${quoteResponse.statusText}`
+        );
+      }
+
+      const quoteData = await quoteResponse.json();
+
+      // Calculate total amount needed (amount + fees + reserve)
+      const totalAmountNeeded = quoteData.amount + (quoteData.fee_reserve || 0);
+
+      if (totalAmountNeeded > balance) {
+        throw new Error(
+          `Insufficient balance with fees. Need ${totalAmountNeeded} sats`
+        );
+      }
+
+      // Select proofs to spend
+      const { send: proofsToSend, returnChange: proofsToKeep } =
+        await wallet.send(totalAmountNeeded, this.proofs);
+
+      // Step 3b: Melt the tokens to pay the invoice
+      const meltUrl = `${mintUrl}/v1/melt/bolt11`;
+      const meltResponse = await fetch(meltUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          quote: quoteData.quote,
+          inputs: proofsToSend,
+        }),
+      });
+
+      if (!meltResponse.ok) {
+        throw new Error(`Failed to melt tokens: ${meltResponse.statusText}`);
+      }
+
+      const meltResult = await meltResponse.json();
+
+      // Check if the payment was successful
+      if (meltResult.state !== "PAID") {
+        throw new Error(`Payment failed: ${meltResult.state}`);
+      }
+
+      // Update the stored proofs (remove spent ones)
+      this.proofs = proofsToKeep;
+
+      // Record the transaction
+      this.addTransaction({
+        id: `zap_${Date.now()}`,
+        type: "melt", // Using melt as the type since we're melting tokens
+        amount,
+        timestamp: Date.now(),
+        memo: `Zap for track ${trackId}`,
+        recipient: trackId,
+        status: "complete",
+      });
+
+      // Save the updated state
+      this.saveWalletState();
+
+      return meltResult.payment_preimage || "success";
+    } catch (error: any) {
+      console.error("Failed to zap track:", error);
+      throw new Error(`Failed to zap track: ${error.message}`);
+    }
   }
 
   private addTransaction(transaction: Transaction) {

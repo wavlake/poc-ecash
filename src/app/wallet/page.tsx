@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useWallet } from "../../contexts/WalletContext";
 import WalletInfo from "../../components/WalletInfo";
 import ReceiveToken from "../../components/ReceiveToken";
@@ -9,7 +9,34 @@ import TransactionHistory from "../../components/TransactionHistory";
 import NostrIntegration from "../../components/NostrIntegration";
 import { useSearchParams } from "next/navigation";
 
+// Main wallet page component with suspense boundary for useSearchParams
 export default function WalletPage() {
+  return (
+    <Suspense fallback={<WalletPageLoading />}>
+      <WalletPageContent />
+    </Suspense>
+  );
+}
+
+// Loading state component
+function WalletPageLoading() {
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      <main className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-8 text-center">Cashu Wallet</h1>
+        <div
+          className="bg-gray-800 rounded-lg p-6 mb-6 flex justify-center items-center"
+          style={{ minHeight: "300px" }}
+        >
+          <p className="text-xl">Loading wallet...</p>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// Content component that uses useSearchParams
+function WalletPageContent() {
   const { balance, isLoading, error } = useWallet();
   const [activeTab, setActiveTab] = useState<
     "balance" | "send" | "receive" | "history" | "nostr"

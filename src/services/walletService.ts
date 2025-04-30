@@ -7,6 +7,9 @@ import {
 } from "@cashu/cashu-ts";
 import { Transaction } from "../types/wallet";
 
+// Check if code is running in browser environment
+const isClient = typeof window !== "undefined";
+
 // Default mints to use - use trusted mint servers in a production app
 const DEFAULT_MINTS = [
   "https://8333.space:3338",
@@ -55,6 +58,12 @@ class WalletService {
 
   private loadWalletState() {
     try {
+      // Skip localStorage operations on server-side
+      if (!isClient) {
+        console.log("Running on server, skipping localStorage operations");
+        return;
+      }
+
       // Load proofs from localStorage
       const savedProofs = localStorage.getItem("cashu_proofs");
       if (savedProofs) {
@@ -73,6 +82,12 @@ class WalletService {
 
   private saveWalletState() {
     try {
+      // Skip localStorage operations on server-side
+      if (!isClient) {
+        console.log("Running on server, skipping localStorage operations");
+        return;
+      }
+
       // Save proofs to localStorage
       localStorage.setItem("cashu_proofs", JSON.stringify(this.proofs));
 
@@ -260,8 +275,12 @@ class WalletService {
   async reset() {
     this.proofs = [];
     this.transactions = [];
-    localStorage.removeItem("cashu_proofs");
-    localStorage.removeItem("cashu_transactions");
+
+    if (isClient) {
+      localStorage.removeItem("cashu_proofs");
+      localStorage.removeItem("cashu_transactions");
+    }
+
     this.saveWalletState();
   }
 }

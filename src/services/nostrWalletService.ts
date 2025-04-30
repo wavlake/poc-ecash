@@ -8,6 +8,9 @@ import {
 import { generateSecretKey, getPublicKey, nip04 } from "nostr-tools";
 import { getDecodedToken, getEncodedTokenV4, Proof } from "@cashu/cashu-ts";
 
+// Check if code is running in browser environment
+const isClient = typeof window !== "undefined";
+
 // Event kinds defined in NIP-60
 const WALLET_EVENT_KIND = 17375;
 const PROOF_EVENT_KIND = 7375;
@@ -50,6 +53,12 @@ class NostrWalletService {
   // Generate or load Nostr keys
   private loadKeys() {
     try {
+      // Skip localStorage operations on server-side
+      if (!isClient) {
+        console.log("Running on server, skipping localStorage operations");
+        return;
+      }
+
       const savedPrivateKey = localStorage.getItem("nostr_private_key");
       if (savedPrivateKey) {
         this.privateKey = hexToArray(savedPrivateKey);
@@ -87,9 +96,12 @@ class NostrWalletService {
       // For simplicity, we're just using JSON.stringify here
       const contentString = JSON.stringify(walletContent);
 
-      // In a real app, you would publish this to Nostr relays
-      // For now, we'll just store it locally
-      localStorage.setItem("nostr_wallet_content", contentString);
+      // Skip localStorage operations on server-side
+      if (isClient) {
+        // In a real app, you would publish this to Nostr relays
+        // For now, we'll just store it locally
+        localStorage.setItem("nostr_wallet_content", contentString);
+      }
 
       return true;
     } catch (error) {
@@ -110,6 +122,11 @@ class NostrWalletService {
         mint,
         proofs,
       };
+
+      // Skip localStorage operations on server-side
+      if (!isClient) {
+        return true;
+      }
 
       // In a real app, you would encrypt this with NIP-04 or NIP-44
       // For simplicity, we're just using JSON.stringify here
@@ -133,6 +150,11 @@ class NostrWalletService {
   // Load proofs from Nostr
   async loadProofs(): Promise<Proof[]> {
     try {
+      // Skip localStorage operations on server-side
+      if (!isClient) {
+        return [];
+      }
+
       // In a real app, you would fetch this from Nostr relays
       // For now, we'll just load from localStorage
       const existingProofs = localStorage.getItem("nostr_proofs");
@@ -176,6 +198,11 @@ class NostrWalletService {
         recipient,
         token,
       };
+
+      // Skip localStorage operations on server-side
+      if (!isClient) {
+        return true;
+      }
 
       // In a real app, you would encrypt and publish this to Nostr relays
       // For now, we'll just store it locally

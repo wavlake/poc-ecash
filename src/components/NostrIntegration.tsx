@@ -4,6 +4,9 @@ import React, { useState, useEffect } from "react";
 import { useWallet } from "../contexts/WalletContext";
 import { nostrWalletService } from "../services/nostrWalletService";
 
+// Check if code is running in browser environment
+const isClient = typeof window !== "undefined";
+
 const NostrIntegration: React.FC = () => {
   const { balance } = useWallet();
   const [pubkey, setPubkey] = useState<string | null>(null);
@@ -20,9 +23,11 @@ const NostrIntegration: React.FC = () => {
         const publicKey = nostrWalletService.getPublicKey();
         setPubkey(publicKey);
 
-        // Check if Nostr integration is enabled
-        const enabled = localStorage.getItem("nostr_integration_enabled");
-        setIsEnabled(enabled === "true");
+        // Check if Nostr integration is enabled - only on client side
+        if (isClient) {
+          const enabled = localStorage.getItem("nostr_integration_enabled");
+          setIsEnabled(enabled === "true");
+        }
       } catch (err) {
         console.error("Failed to load Nostr key:", err);
         setError("Failed to load Nostr key");
@@ -46,11 +51,18 @@ const NostrIntegration: React.FC = () => {
         ];
 
         await nostrWalletService.initializeWallet(mints);
-        localStorage.setItem("nostr_integration_enabled", "true");
+
+        if (isClient) {
+          localStorage.setItem("nostr_integration_enabled", "true");
+        }
+
         setIsEnabled(true);
         setSuccess("Nostr integration enabled successfully");
       } else {
-        localStorage.setItem("nostr_integration_enabled", "false");
+        if (isClient) {
+          localStorage.setItem("nostr_integration_enabled", "false");
+        }
+
         setIsEnabled(false);
         setSuccess("Nostr integration disabled");
       }
@@ -100,8 +112,9 @@ const NostrIntegration: React.FC = () => {
       setError("Failed to send to Nostr user");
     }
   };
+
   const copyPubkeyToClipboard = () => {
-    if (pubkey) {
+    if (pubkey && isClient) {
       navigator.clipboard.writeText(pubkey);
       alert("Public key copied to clipboard!");
     } else {
